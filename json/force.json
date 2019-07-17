@@ -1,0 +1,155 @@
+{
+    "nodes": [
+        {
+            "id": 0,
+            "name": "UI",
+            "type": 0,
+            "tech": "nginx",
+            "desc": "用户入口",
+            "instances": [
+                {},
+                {}
+            ]
+        },
+        {
+            "id": 1,
+            "name": "interface",
+            "type": 0,
+            "tech": "nginx",
+            "desc": "内部调用入口",
+            "instances": [
+                {},
+                {}
+            ]
+        },
+        {
+            "id": 2,
+            "name": "monitor-web",
+            "type": 1,
+            "tech": "tomcat",
+            "desc": "主要功能",
+            "instances": [
+                {},
+                {}
+            ]
+        },
+        {
+            "id": 3,
+            "name": "monitor-shell",
+            "type": 1,
+            "tech": "golang",
+            "desc": "web shell",
+            "instances": [
+                {}
+            ]
+        },
+        {
+            "id": 4,
+            "name": "grafana",
+            "type": 1,
+            "tech": "grafana",
+            "desc": "报表工具",
+            "instances": [
+                {}
+            ]
+        },
+        {
+            "id": 5,
+            "name": "kibana",
+            "type": 1,
+            "tech": "kibana",
+            "desc": "日志全文检索工具",
+            "instances": [
+                {}
+            ]
+        },
+        {
+            "id": 6,
+            "name": "elasticSearch",
+            "type": 2,
+            "tech": "elasticsearch",
+            "desc": "NOSQL分布式存储",
+            "instances": [
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {}
+            ]
+        },
+        {
+            "id": 7,
+            "name": "influxDB",
+            "type": 2,
+            "tech": "influxdb",
+            "desc": "时序数据库",
+            "instances": [
+                {},
+                {}
+            ]
+        },
+        {
+            "id": 8,
+            "name": "mysql",
+            "type": 2,
+            "tech": "mariadb",
+            "desc": "关系数据库",
+            "instances": [
+                {},
+                {}
+            ]
+        }
+    ],
+    "edges": [
+        {
+            "source": 0,
+            "target": 2
+        },
+        {
+            "source": 0,
+            "target": 3
+        },
+        {
+            "source": 0,
+            "target": 4
+        },
+        {
+            "source": 0,
+            "target": 5
+        },
+        {
+            "source": 1,
+            "target": 2
+        },
+        {
+            "source": 2,
+            "target": 6
+        },
+        {
+            "source": 2,
+            "target": 7
+        },
+        {
+            "source": 2,
+            "target": 8
+        },
+        {
+            "source": 3,
+            "target": 8
+        },
+        {
+            "source": 4,
+            "target": 6
+        },
+        {
+            "source": 4,
+            "target": 7
+        },
+        {
+            "source": 5,
+            "target": 6
+        }
+    ]
+}

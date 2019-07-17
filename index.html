@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<title>部署架构</title>
+
+	<script type="text/javascript" src="lib/d3-5.9.7.js"></script>
+	<script type="text/javascript" src="lib/d3-tip-0.9.1.js"></script>
+	<meta name="content-type" content="text/html; charset=utf-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<meta content="width=device-width, initial-scale=1" name="viewport" />
+	<!--<link rel="stylesheet" type="text/css" href="./styles.css">-->
+	<style>
+		html,
+		body {
+			margin: 0;
+			width: 100%;
+			height: 100%;
+			background-color: #141414;
+		}
+
+		#mainSvg {
+			width: 100%;
+			height: 100%;
+			display: block;
+		}
+
+		.link {
+			fill: none;
+			stroke-width: 1px;
+			stroke-dasharray: 95, 5;
+		}
+
+		.text {
+			fill: white;
+		}
+
+		.circle {
+			/* box-shadow: 10px 5px 5px red; */
+		}
+
+		.d3-tip {
+			line-height: 1;
+			font-weight: bold;
+			padding: 12px;
+			background: rgba(220, 222, 122, 0.8);
+			color: #fff;
+			border-radius: 2px;
+			pointer-events: none;
+		}
+
+		/* Creates a small triangle extender for the tooltip */
+		.d3-tip:after {
+			box-sizing: border-box;
+			display: inline;
+			font-size: 10px;
+			width: 100%;
+			line-height: 1;
+			color: rgba(220, 222, 122, 0.8);
+			position: absolute;
+			pointer-events: none;
+		}
+
+		/* Northward tooltips */
+		.d3-tip.n:after {
+			content: "\25BC";
+			margin: -1px 0 0 0;
+			top: 100%;
+			left: 0;
+			text-align: center;
+		}
+
+		/* Eastward tooltips */
+		.d3-tip.e:after {
+			content: "\25C0";
+			margin: -4px 0 0 0;
+			top: 50%;
+			left: -8px;
+		}
+
+		/* Southward tooltips */
+		.d3-tip.s:after {
+			content: "\25B2";
+			margin: -4px 0 1px 0;
+			top: -8px;
+			left: 0;
+			text-align: center;
+		}
+
+		/* Westward tooltips */
+		.d3-tip.w:after {
+			content: "\25B6";
+			margin: -4px 0 0 -1px;
+			top: 50%;
+			left: 100%;
+		}
+	</style>
+</head>
+
+<body>
+	<svg id="mainSvg">
+		<filter id="bg_nginx" x="0%" y="0%" width="100%" height="100%">
+			<feImage xlink:href="image/nginx.png" />
+		</filter>
+		<filter id="bg_tomcat" x="0%" y="0%" width="100%" height="100%">
+			<feImage xlink:href="image/tomcat.png" />
+		</filter>
+		<filter id="bg_influxdb" x="0%" y="0%" width="100%" height="100%">
+			<feImage xlink:href="image/influxdb.png" />
+		</filter>
+		<filter id="bg_elasticsearch" x="0%" y="0%" width="100%" height="100%">
+			<feImage xlink:href="image/elasticsearch.png" />
+		</filter>
+		<filter id="bg_mysql" x="0%" y="0%" width="100%" height="100%">
+			<feImage xlink:href="image/mysql.png" />
+		</filter>
+		<filter id="bg_mariadb" x="0%" y="0%" width="100%" height="100%">
+			<feImage xlink:href="image/mariadb.png" />
+		</filter>
+		<filter id="bg_golang" x="0%" y="0%" width="100%" height="100%">
+			<feImage xlink:href="image/golang.png" />
+		</filter>
+		<filter id="bg_grafana" x="0%" y="0%" width="100%" height="100%">
+			<feImage xlink:href="image/grafana.png" />
+		</filter>
+		<filter id="bg_kibana" x="0%" y="0%" width="100%" height="100%">
+			<feImage xlink:href="image/kibana.png" />
+		</filter>
+	</svg>
+	<script>
+		var svg = d3.select("svg");
+		var tip = d3.tip()
+			.attr('class', 'd3-tip')
+			.offset(function (d) {
+				if (d.type === 0) {
+					return [5, 0];
+				}
+				return [-10, 0];
+			}).direction(
+				function (d) {
+					if (d.type === 0) {
+						return 's';
+					}
+					return 'n';
+				}
+			)
+			.html(
+				function (d) {
+					return "<strong>作用:</strong>" +
+						"<span style='color:red'>" +
+						d.desc +
+						"</span>";
+				}
+			);
+		svg.call(tip);
+		var defs = svg.append("defs");
+		var width = document.getElementById('mainSvg').clientWidth;
+		var height = document.getElementById('mainSvg').clientHeight;
+		console.log(width + "," + height);
+		// 画布
+		var gForce = svg.append("g");
+		var yScale = [100, 350, 600]; // 不用类型的节点在分布在不同高度
+		var yCollide = [200, 120, 150]; // 不用高度的节点之间的最小距离不同
+		var circlePackSizes = [1, 15, 30, 35, 40, 50, 50, 60, 60, 65]; // 包裹实例的pack的圆半径
+		//绘图元素
+		var forceSimulation = d3.forceSimulation()
+			.force("link", d3.forceLink().strength(0.01))
+			.force("center", d3.forceCenter(width / 2, height / 2))
+			//不同类型的节点在y方向上进行分层
+			.force('y', d3.forceY().strength(1).y(
+				function (d) {
+					return yScale[d.type];
+				}
+			))
+			//节点之间分离
+			.force("charge", d3.forceManyBody().strength(-100))
+			//节点之间的最小距离
+			.force("collision", d3.forceCollide().strength(1).radius(
+				function (d) {
+					return yCollide[d.type];
+				}
+			));
+		var colorScale; //颜色比例尺
+		var links;
+		var gCircles;
+		//准备数据
+		var nodes = [];
+		var edges = [];
+		d3.json("json/force.json").then(
+			function (json) {
+				nodes = json.nodes;
+				edges = json.edges;
+				init();
+			}
+		);
+
+
+		function init() {
+			colorScale = d3.scaleOrdinal()
+				.domain(d3.range(nodes.length))
+				.range(d3.schemeSet1);
+
+			//初始化力导向图
+			forceSimulation.nodes(nodes)
+				.on("tick", ticked);
+			forceSimulation.force("link").links(edges);
+
+			//nodes和edges的数据都被更新了
+			console.log("nodes", nodes);
+			console.log("edges", edges);
+
+			//绘制连线
+			links = gForce.append("g")
+				.selectAll("XXXline")
+				.data(edges)
+				.enter()
+				.append("path")
+				.attr("stroke", function (d, i) {
+					// 边的颜色与source节点一致
+					return colorScale(d.target.id);
+				})
+				.attr("stroke-opacity", 0.9)
+				.classed("link", true);
+
+			// 数据流动效果
+			(() => {
+				var dashoffset = 0;
+				var lastFrame = 0;
+				var doms = links.nodes();
+
+				function linkFlow(t) {
+					// // transition的cpu耗用很大
+					// var duration = 5000;
+					// links.style('stroke-dashoffset', 0)
+					// 	.transition()
+					// 	.duration(duration)
+					// 	.ease(d3.easeLinear)
+					// 	.style("stroke-dashoffset", -100)
+					// 	.on("end", linkFlow);
+
+					// requestAnimationFrame在窗口不显示时不执行
+					requestAnimationFrame(linkFlow);
+					if (t - lastFrame < 75) {
+						return;
+					}
+					lastFrame = t;
+					dashoffset -= 2;
+					if (dashoffset <= -100) {
+						dashoffset = 0;
+					}
+					doms.forEach(function (dom) {
+						dom.style.strokeDashoffset = dashoffset;
+					});
+				}
+
+				setTimeout(linkFlow, 5000);
+			})();
+
+			// 准备节点画布(多个)
+			gCircles = gForce.selectAll("MYNODE")
+				.data(nodes)
+				.enter()
+				.append("g")
+				.attr("transform",
+					function (d, i) {
+						return "translate(" + d.x + "," + d.y + ")";
+					}
+				)
+				.call(d3.drag()
+					.on("start", started)
+					.on("drag", dragged)
+					.on("end", ended)
+				);
+
+
+
+			// 绘制节点圆圈
+			var circles = gCircles.append("circle")
+				.attr("r",
+					function (d) {
+						return circlePackRadius(d);
+					}
+				)
+				// .on('mouseover',
+				// 	function (d, i, s, x, y) {
+				// 		tip.show.call(this, d, i, s);
+				// 	}
+				// )
+				// .on('mouseout', tip.hide)
+				.attr("fill",
+					function (d, i) {
+						return colorScale(d.id);
+					}
+				)
+				.attr('fill-opacity', 0.5);
+
+			// 定时显示提示框
+			(() => {
+				var circleIndex = -1;
+				// 获取dom集合
+				var doms = circles.nodes();
+				console.log("circles", doms);
+				var dom;
+				var d3Dom;
+
+				function showTip() {
+					if (!!dom) {
+						tip.hide.call(dom);
+						d3Dom.interrupt("blink").attr("r",
+							function (d) {
+								return circlePackRadius(d);
+							}
+						);
+					}
+					circleIndex++;
+					if (circleIndex >= doms.length) {
+						circleIndex = 0;
+					}
+					dom = doms[circleIndex];
+					d3Dom = d3.select(doms[circleIndex]);
+					tip.show.call(dom, d3Dom.datum());
+					blink();
+					setTimeout(showTip, 5000);
+				}
+
+				function blink() {
+					d3Dom.transition("blink")
+						.duration(500)
+						.ease(d3.easeLinear)
+						.attr("r",
+							function (d) {
+								return circlePackRadius(d) + 3;
+							}
+						)
+						.transition("blink")
+						.duration(500)
+						.ease(d3.easeLinear)
+						.attr("r",
+							function (d) {
+								return circlePackRadius(d);
+							}
+						)
+						.on("end", blink);
+				}
+
+				setTimeout(showTip, 5000);
+			})();
+
+			// 绘制节点文字
+			gCircles.append("text")
+				.attr("x", 0)
+				.attr("y", 0)
+				.attr("dy",
+					function (d) {
+						if (d.type === 0) {
+							return -circlePackRadius(d);							
+						}
+						return circlePackRadius(d) + 10;
+					}
+				)
+				.attr("text-anchor", "middle")
+				.text(
+					function (d) {
+						return d.name;
+					}
+				)
+				.classed('text', true);
+
+			// 绘制实例
+			gCircles.each(
+				function (dNode, i, doms) {
+					var d3Dom = d3.select(doms[i]);
+					var radius = circlePackRadius(dNode);
+					var packLayout = d3.pack().size([radius * 2, radius * 2]).padding(5);
+					var rootNode = d3.hierarchy({
+						children: dNode.instances
+					});
+					rootNode.sum(d => 1);
+					packLayout(rootNode);
+
+					d3Dom.selectAll('XXXPack')
+						.data(rootNode.descendants().slice(1))
+						.enter()
+						.append('circle')
+						.attr('cx',
+							function (d) {
+								return d.x - radius;
+							}
+						)
+						.attr('cy',
+							function (d) {
+								return d.y - radius;
+							}
+						)
+						.attr('r',
+							function (d) {
+								return d.r;
+							}
+						)
+						.attr('fill',
+							function (d, i) {
+								return colorScale(dNode.id);
+							}
+						)
+						.attr('fill-opacity', 1)
+						.attr('filter',
+							function (d, i) {
+								if (!!dNode.tech) {
+									return 'url(#bg_' + dNode.tech + ')';
+								}
+								return '';
+							}
+						);
+				}
+			);
+		}
+
+
+		function circlePackRadius(d) {
+			return circlePackSizes[d.instances.length] * 2;
+		}
+
+		// 在forceSimulation逐步刷新nodes、edges上的数据时，更新视图元素的属性
+		function ticked() {
+			//console.log("tick", nodes[0]);
+			links.attr("d", positionLink);
+			gCircles.attr("transform", function (d) {
+				return "translate(" + d.x + "," + d.y + ")";
+			});
+		}
+
+		function started(d) {
+			if (!d3.event.active) {
+				// 没有同时拖动其他元素时
+				// 重新开始刷新nodes、edges数据
+				forceSimulation.alphaTarget(0.8).restart();
+			}
+			d.fx = d.x;
+			d.fy = d.y;
+		}
+
+		function dragged(d) {
+			d.fx = d3.event.x;
+			d.fy = d3.event.y;
+		}
+
+		function ended(d) {
+			if (!d3.event.active) {
+				// 不再拖动后，快速停止刷新nodes、edges数据
+				forceSimulation.alphaTarget(0);
+			}
+			d.fx = null;
+			d.fy = null;
+		}
+
+		// links are drawn as curved paths between nodes,
+		// through the intermediate nodes
+		function positionLink(d) {
+			var offset = 20;
+			var sourceX = d.source.x;
+			var sourceY = d.source.y;
+			var targetX = d.target.x;
+			var targetY = d.target.y;
+			var dx = (targetX - sourceX);
+			var dy = (targetY - sourceY);
+			var normalise = Math.sqrt((dx * dx) + (dy * dy));
+
+			// 调整起点、重点
+			var sourceX = d.source.x + circlePackRadius(d.source) * dx / normalise
+			var sourceY = d.source.y + circlePackRadius(d.source) * dy / normalise
+			var targetX = d.target.x - circlePackRadius(d.target) * dx / normalise
+			var targetY = d.target.y - circlePackRadius(d.target) * dy / normalise
+
+			var offSetX = (sourceX + targetX) / 2 + offset * (dy / normalise);
+			var offSetY = (sourceY + targetY) / 2 - offset * (dx / normalise);
+			return "M" + sourceX + "," + sourceY +
+				"S" + offSetX + "," + offSetY +
+				" " + targetX + "," + targetY;
+		}
+	</script>
+</body>
+
+</html>
