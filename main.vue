@@ -3,10 +3,10 @@
     <svg id="mainSvg" @dblclick="moveSvgRight" :style="{ 'width': svgWidth + 'px', 'height': svgHeight + 'px' }">
       <!-- 技术组件的logo -->
       <filter v-for="type in types" :key="'filter_' + type" :id="'bg_' + type" x="0%" y="0%" width="100%" height="100%">
-        <feImage :xlink:href="'../images/circle_' + type + '.png'" />
+        <feImage :xlink:href="'./images/circle_' + type + '.png'" />
       </filter>
       <filter v-for="tech in teches" :key="'filter_' + tech" :id="'bg_' + tech" x="0%" y="0%" width="100%" height="100%">
-        <feImage :xlink:href="'../images/' + tech + '.png'" />
+        <feImage :xlink:href="'./images/' + tech + '.png'" />
       </filter>
 
       <g id="gForce">
